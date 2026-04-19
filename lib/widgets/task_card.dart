@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/task.dart';
 import '../services/haptics_service.dart';
+import '../theme/app_theme.dart';
 import 'pencil_scratch_text.dart';
 
 class TaskCard extends StatefulWidget {
@@ -13,12 +14,14 @@ class TaskCard extends StatefulWidget {
     required this.hapticsService,
     required this.onToggleComplete,
     required this.onDelete,
+    this.onCelebrate,
   });
 
   final Task task;
   final HapticsService hapticsService;
   final VoidCallback onToggleComplete;
   final VoidCallback onDelete;
+  final VoidCallback? onCelebrate;
 
   @override
   State<TaskCard> createState() => _TaskCardState();
@@ -30,17 +33,6 @@ class _TaskCardState extends State<TaskCard> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final priorityColor = _priorityColor(widget.task.priority);
-    final cardOpacity = widget.task.isCompleted ? 0.58 : 1.0;
-    final textStyle = theme.textTheme.titleLarge?.copyWith(
-          fontWeight: FontWeight.w700,
-          color: widget.task.isCompleted
-              ? theme.colorScheme.onSurfaceVariant
-              : theme.colorScheme.onSurface,
-        ) ??
-        const TextStyle();
-
     return Dismissible(
       key: ValueKey<String>('task-dismissible-${widget.task.id}'),
       direction: DismissDirection.endToStart,
@@ -48,36 +40,40 @@ class _TaskCardState extends State<TaskCard> {
         DismissDirection.endToStart: _dismissThreshold,
       },
       onUpdate: (details) {
-        final crossedThreshold = details.progress >= _dismissThreshold;
-        if (crossedThreshold && !_hasTriggeredDismissTick) {
+        final crossed = details.progress >= _dismissThreshold;
+        if (crossed && !_hasTriggeredDismissTick) {
           _hasTriggeredDismissTick = true;
           unawaited(widget.hapticsService.playDismissThresholdTick());
-        } else if (!crossedThreshold) {
+        } else if (!crossed) {
           _hasTriggeredDismissTick = false;
         }
       },
-      onDismissed: (_) => widget.onDelete(),
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.symmetric(horizontal: 28),
-        decoration: BoxDecoration(
-          color: const Color(0xFF7F1D1D),
-          borderRadius: BorderRadius.circular(28),
-        ),
-        child: const Icon(
-          Icons.delete_outline_rounded,
-          color: Colors.white,
+      onDismissed: (_) {
+        unawaited(widget.hapticsService.vibrateRamping());
+        widget.onDelete();
+      },
+      background: ClipRRect(
+        borderRadius: BorderRadius.circular(AppTheme.islandRadius),
+        child: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          color: AppTheme.destructiveRed.withValues(alpha: 0.85),
+          child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
         ),
       ),
       child: AnimatedOpacity(
         key: ValueKey<String>('task-opacity-${widget.task.id}'),
         duration: const Duration(milliseconds: 240),
         curve: Curves.easeOutCubic,
-        opacity: cardOpacity,
-        child: Card(
+        opacity: widget.task.isCompleted ? 0.55 : 1.0,
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppTheme.islandSurface,
+            borderRadius: BorderRadius.circular(AppTheme.islandRadius),
+          ),
           child: InkWell(
             key: ValueKey<String>('task-surface-${widget.task.id}'),
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(AppTheme.islandRadius),
             onTap: () {
               final wasCompleted = widget.task.isCompleted;
               widget.onToggleComplete();
@@ -86,55 +82,42 @@ class _TaskCardState extends State<TaskCard> {
               }
             },
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+              padding: const EdgeInsets.all(18),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _TaskStatusGlyph(
-                    isCompleted: widget.task.isCompleted,
-                  ),
-                  const SizedBox(width: 16),
+                  _TaskCheckbox(isCompleted: widget.task.isCompleted),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 10,
-                              height: 10,
-                              decoration: BoxDecoration(
-                                color: priorityColor,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              widget.task.priority.label,
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                color: priorityColor,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            if (widget.task.alarmDateTime != null) ...[
-                              const SizedBox(width: 12),
-                              Icon(
-                                Icons.alarm_rounded,
-                                size: 16,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 12),
                         PencilScratchText(
-                          key: ValueKey<String>('task-scratch-${widget.task.id}'),
+                          key: ValueKey<String>(
+                            'task-scratch-${widget.task.id}',
+                          ),
                           text: widget.task.title,
-                          style: textStyle,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: widget.task.isCompleted
+                                ? AppTheme.subtleGrey
+                                : Colors.white,
+                          ),
                           isCompleted: widget.task.isCompleted,
+                          onScratchComplete: widget.onCelebrate,
                         ),
+                        const SizedBox(height: 6),
+                        _buildSubtitle(),
                       ],
                     ),
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.more_vert,
+                      color: AppTheme.subtleGrey,
+                      size: 20,
+                    ),
+                    onPressed: () {},
                   ),
                 ],
               ),
@@ -143,6 +126,70 @@ class _TaskCardState extends State<TaskCard> {
         ),
       ),
     );
+  }
+
+  Widget _buildSubtitle() {
+    if (widget.task.isCompleted) {
+      return const Text(
+        'Completed today',
+        style: TextStyle(color: AppTheme.subtleGrey, fontSize: 13),
+      );
+    }
+
+    final priorityColor = _priorityColor(widget.task.priority);
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+          decoration: BoxDecoration(
+            color: priorityColor.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            widget.task.priority.label,
+            style: TextStyle(
+              color: priorityColor,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        if (widget.task.alarmDateTime != null) ...[
+          const SizedBox(width: 8),
+          const Icon(
+            Icons.alarm_rounded,
+            size: 14,
+            color: AppTheme.subtleGrey,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            _formatAlarmTime(),
+            style: const TextStyle(
+              color: AppTheme.subtleGrey,
+              fontSize: 12,
+            ),
+          ),
+        ],
+        if (widget.task.isRecurring) ...[
+          const SizedBox(width: 8),
+          const Icon(
+            Icons.repeat_rounded,
+            size: 14,
+            color: AppTheme.accentBlue,
+          ),
+        ],
+      ],
+    );
+  }
+
+  String _formatAlarmTime() {
+    final dt = widget.task.alarmDateTime;
+    if (dt == null) return '';
+    final diff = dt.difference(DateTime.now());
+    if (diff.isNegative) return 'Overdue';
+    if (diff.inHours < 1) return '${diff.inMinutes}m left';
+    if (diff.inHours < 24) return '${diff.inHours}h left';
+    return '${diff.inDays}d left';
   }
 
   Color _priorityColor(TaskPriority priority) {
@@ -157,36 +204,29 @@ class _TaskCardState extends State<TaskCard> {
   }
 }
 
-class _TaskStatusGlyph extends StatelessWidget {
-  const _TaskStatusGlyph({
-    required this.isCompleted,
-  });
+class _TaskCheckbox extends StatelessWidget {
+  const _TaskCheckbox({required this.isCompleted});
 
   final bool isCompleted;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
-      width: 36,
-      height: 36,
+      width: 28,
+      height: 28,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: isCompleted ? theme.colorScheme.primary : Colors.transparent,
+        color: isCompleted ? AppTheme.accentBlue : Colors.transparent,
         border: Border.all(
-          color:
-              isCompleted ? theme.colorScheme.primary : theme.colorScheme.outline,
+          color: isCompleted ? AppTheme.accentBlue : AppTheme.islandBorder,
           width: 2,
         ),
       ),
-      child: Icon(
-        Icons.check_rounded,
-        size: 20,
-        color: isCompleted ? Colors.white : Colors.transparent,
-      ),
+      child: isCompleted
+          ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
+          : null,
     );
   }
 }

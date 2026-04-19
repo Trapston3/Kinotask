@@ -42,6 +42,12 @@ class FakeNotificationService implements NotificationService {
 
   @override
   Future<void> showAlarmNotification(AlarmTriggerPayload payload) async {}
+
+  @override
+  Future<bool> canScheduleExactAlarms() async => true;
+
+  @override
+  Future<void> showStandardNotification({required String title, required String body}) async {}
 }
 
 class FakeHapticsService implements HapticsService {
@@ -57,6 +63,15 @@ class FakeHapticsService implements HapticsService {
   Future<void> playTaskScratchPattern() async {
     scratchCalls++;
   }
+
+  @override
+  Future<void> lightTick() async {}
+
+  @override
+  Future<void> subtleClick() async {}
+
+  @override
+  Future<void> vibrateRamping() async {}
 }
 
 Widget buildTestApp({

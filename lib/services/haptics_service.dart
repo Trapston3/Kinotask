@@ -4,6 +4,15 @@ abstract interface class HapticsService {
   Future<void> playTaskScratchPattern();
 
   Future<void> playDismissThresholdTick();
+
+  /// A light 'tick' for tapping bottom navigation tabs.
+  Future<void> lightTick();
+
+  /// A crisp, subtle click for the FAB and Priority toggles.
+  Future<void> subtleClick();
+
+  /// A 'Ramping' amplitude vibration for swiping/deleting a task card.
+  Future<void> vibrateRamping();
 }
 
 class VibrationRequest {
@@ -139,5 +148,49 @@ class DeviceHapticsService implements HapticsService {
         sharpness: 1,
       ),
     );
+  }
+
+  @override
+  Future<void> lightTick() async {
+    if (!await _driver.hasVibrator()) return;
+    final hasAmplitude = await _driver.hasAmplitudeControl();
+    await _driver.vibrate(
+      VibrationRequest(
+        duration: 12,
+        amplitude: hasAmplitude ? 70 : -1,
+        sharpness: 0.1,
+      ),
+    );
+  }
+
+  @override
+  Future<void> subtleClick() async {
+    if (!await _driver.hasVibrator()) return;
+    final hasAmplitude = await _driver.hasAmplitudeControl();
+    await _driver.vibrate(
+      VibrationRequest(
+        duration: 20,
+        amplitude: hasAmplitude ? 150 : -1,
+        sharpness: 0.7,
+      ),
+    );
+  }
+
+  @override
+  Future<void> vibrateRamping() async {
+    if (!await _driver.hasVibrator()) return;
+    final hasAmplitude = await _driver.hasAmplitudeControl();
+    if (hasAmplitude) {
+      // Ramping effect: progressively increasing intensity
+      await _driver.vibrate(
+        VibrationRequest(
+          pattern: [0, 40, 40, 40, 40, 40],
+          intensities: [0, 40, 80, 130, 190, 255],
+          sharpness: 0.5,
+        ),
+      );
+    } else {
+      await _driver.vibrate(const VibrationRequest(duration: 200));
+    }
   }
 }

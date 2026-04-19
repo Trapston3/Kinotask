@@ -15,6 +15,12 @@ abstract interface class NotificationService {
   Future<void> showAlarmNotification(AlarmTriggerPayload payload);
 
   Future<void> cancelForTaskId(String taskId);
+
+  /// Whether the OS currently allows exact alarm scheduling (Android 14+).
+  Future<bool> canScheduleExactAlarms();
+
+  /// Show a simple, non-alarm notification (e.g. goal congratulation).
+  Future<void> showStandardNotification({required String title, required String body});
 }
 
 class LocalNotificationService implements NotificationService {
@@ -63,6 +69,17 @@ class LocalNotificationService implements NotificationService {
   }
 
   @override
+  Future<bool> canScheduleExactAlarms() async {
+    try {
+      final android = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      return await android?.canScheduleExactNotifications() ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
   Future<void> showAlarmNotification(AlarmTriggerPayload payload) async {
     await initialize();
 
@@ -82,13 +99,24 @@ class LocalNotificationService implements NotificationService {
         playSound: true,
         enableVibration: true,
         vibrationPattern: Int64List.fromList(
-          isAlarm ? [0, 240, 120, 180] : [0, 110, 60, 90],
+          isAlarm
+              // 5-pulse alarm pattern (much more aggressive than a notification)
+              ? [0, 800, 200, 800, 200, 800, 200, 800, 200, 800]
+              : [0, 110, 60, 90],
         ),
         ongoing: isAlarm,
         autoCancel: !isAlarm,
-        fullScreenIntent: isHigh,
+        // ── KEY FIX: both High AND Medium get full-screen intent ──
+        fullScreenIntent: isAlarm,
+        // ── Use alarm audio stream so sound respects alarm volume ──
+        audioAttributesUsage: isAlarm
+            ? AudioAttributesUsage.alarm
+            : AudioAttributesUsage.notification,
         visibility: NotificationVisibility.public,
         ticker: payload.title,
+        additionalFlags: isAlarm ? Int32List.fromList(<int>[4]) : null,
+        // High never auto-dismisses; Medium times out after 60 s.
+        timeoutAfter: isHigh ? null : 60000,
       ),
     );
 
@@ -105,6 +133,26 @@ class LocalNotificationService implements NotificationService {
   Future<void> cancelForTaskId(String taskId) async {
     await initialize();
     await _plugin.cancel(id: AlarmTriggerPayload.notificationIdFor(taskId));
+  }
+
+  @override
+  Future<void> showStandardNotification({required String title, required String body}) async {
+    await initialize();
+    const details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        'kinotask_general',
+        'General Notifications',
+        channelDescription: 'Non-alarm notifications like goal achievements.',
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
+      ),
+    );
+    await _plugin.show(
+      id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      title: title,
+      body: body,
+      notificationDetails: details,
+    );
   }
 
   Future<void> _handleNotificationResponse(NotificationResponse response) async {

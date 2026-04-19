@@ -35,6 +35,12 @@ class FakeNotificationService implements NotificationService {
 
   @override
   Future<void> showAlarmNotification(AlarmTriggerPayload payload) async {}
+
+  @override
+  Future<bool> canScheduleExactAlarms() async => true;
+
+  @override
+  Future<void> showStandardNotification({required String title, required String body}) async {}
 }
 
 void main() {

@@ -6,6 +6,7 @@ class PencilScratchText extends StatefulWidget {
     required this.text,
     required this.style,
     required this.isCompleted,
+    this.onScratchComplete,
   });
 
   static const Duration animationDuration = Duration(milliseconds: 450);
@@ -13,6 +14,7 @@ class PencilScratchText extends StatefulWidget {
   final String text;
   final TextStyle style;
   final bool isCompleted;
+  final VoidCallback? onScratchComplete;
 
   @override
   State<PencilScratchText> createState() => _PencilScratchTextState();
@@ -37,6 +39,14 @@ class _PencilScratchTextState extends State<PencilScratchText>
     super.didUpdateWidget(oldWidget);
     if (!oldWidget.isCompleted && widget.isCompleted) {
       _controller.forward(from: 0);
+      void onFinished(AnimationStatus status) {
+        if (status == AnimationStatus.completed) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            widget.onScratchComplete?.call();
+          });
+        }
+      }
+      _controller.addStatusListener(onFinished);
     } else if (oldWidget.isCompleted && !widget.isCompleted) {
       _controller.reverse(from: 1);
     }

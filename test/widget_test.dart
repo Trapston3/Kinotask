@@ -33,6 +33,15 @@ class NoOpHapticsService implements HapticsService {
 
   @override
   Future<void> playTaskScratchPattern() async {}
+
+  @override
+  Future<void> lightTick() async {}
+
+  @override
+  Future<void> subtleClick() async {}
+
+  @override
+  Future<void> vibrateRamping() async {}
 }
 
 Widget buildTestApp() {

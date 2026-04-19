@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/alarm_coordinator.dart';
 import 'screens/alarm_captcha_screen.dart';
-import 'screens/app_shell.dart';
+import 'screens/splash_screen.dart';
 import 'theme/app_theme.dart';
 
 class ProductivityApp extends StatelessWidget {
@@ -12,11 +13,16 @@ class ProductivityApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Productivity App',
+      title: 'Kinotask',
       debugShowCheckedModeBanner: false,
-      themeMode: ThemeMode.system,
-      theme: AppTheme.lightTheme,
+      themeMode: ThemeMode.dark,
+      theme: AppTheme.darkTheme,
       darkTheme: AppTheme.darkTheme,
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       builder: (context, child) {
         final session = context.watch<AlarmCoordinator>().activeSession;
 
@@ -31,7 +37,7 @@ class ProductivityApp extends StatelessWidget {
           ],
         );
       },
-      home: const AppShell(),
+      home: const SplashScreen(),
     );
   }
 }

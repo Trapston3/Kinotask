@@ -47,6 +47,16 @@ class TaskProvider extends ChangeNotifier {
 
   UnmodifiableListView<Task> get tasks => UnmodifiableListView(_tasks);
 
+  // ── Kanban filtered views ───────────────────────────────────────
+  List<Task> get todoTasks =>
+      _tasks.where((t) => t.status == 'To Do' && !t.isCompleted).toList();
+
+  List<Task> get inProgressTasks =>
+      _tasks.where((t) => t.status == 'In Progress' && !t.isCompleted).toList();
+
+  List<Task> get doneTasks =>
+      _tasks.where((t) => t.status == 'Done' || t.isCompleted).toList();
+
   Future<void> initialize() async {
     if (_isReady) {
       await _alarmService.syncTasks(_tasks);
@@ -67,11 +77,13 @@ class TaskProvider extends ChangeNotifier {
     required String title,
     TaskPriority priority = TaskPriority.medium,
     DateTime? alarmDateTime,
+    bool isRecurring = false,
   }) async {
     final task = Task(
       id: '${DateTime.now().microsecondsSinceEpoch}-${_tasks.length}',
       title: title.trim(),
       priority: priority,
+      isRecurring: isRecurring,
       alarmTime: alarmDateTime?.toIso8601String(),
       createdAt: DateTime.now().toIso8601String(),
     );
@@ -89,7 +101,35 @@ class TaskProvider extends ChangeNotifier {
     }
 
     final current = _tasks[index];
-    _tasks[index] = current.copyWith(isCompleted: !current.isCompleted);
+    
+    if (!current.isCompleted && current.isRecurring) {
+      final now = DateTime.now();
+      final tomorrowMidnight = DateTime(now.year, now.month, now.day + 1);
+      
+      _tasks[index] = current.copyWith(
+        isCompleted: false,
+        alarmTime: tomorrowMidnight.toIso8601String(),
+      );
+    } else {
+      _tasks[index] = current.copyWith(
+        isCompleted: !current.isCompleted,
+        status: !current.isCompleted ? 'Done' : 'To Do',
+      );
+    }
+
+    notifyListeners();
+    await _persistAndSync();
+  }
+
+  /// Update the Kanban status of a task and persist to Hive.
+  Future<void> updateTaskStatus(String id, String newStatus) async {
+    final index = _tasks.indexWhere((t) => t.id == id);
+    if (index == -1) return;
+
+    _tasks[index] = _tasks[index].copyWith(
+      status: newStatus,
+      isCompleted: newStatus == 'Done',
+    );
     notifyListeners();
     await _persistAndSync();
   }

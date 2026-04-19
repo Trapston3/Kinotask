@@ -53,7 +53,22 @@ class AndroidAlarmManagerSchedulerDriver implements AlarmSchedulerDriver {
         params: request.payload.toJson(),
       );
     } catch (_) {
-      // Permission prompts and OEM alarm restrictions should not crash task persistence.
+      // ── Android 14+ SCHEDULE_EXACT_ALARM denied – degrade to inexact ──
+      try {
+        await AndroidAlarmManager.oneShotAt(
+          request.scheduledAt,
+          request.alarmId,
+          alarmCallbackDispatcher,
+          alarmClock: false,
+          allowWhileIdle: true,
+          exact: false,
+          wakeup: true,
+          rescheduleOnReboot: true,
+          params: request.payload.toJson(),
+        );
+      } catch (_) {
+        // OEM restriction – alarm cannot be scheduled at all.
+      }
     }
   }
 
@@ -67,8 +82,12 @@ class AndroidAlarmService implements AlarmService {
   AndroidAlarmService({
     required NotificationService notificationService,
     AlarmSchedulerDriver? schedulerDriver,
-  }) : _schedulerDriver = schedulerDriver ?? AndroidAlarmManagerSchedulerDriver();
+  })  : _notificationService = notificationService,
+        _schedulerDriver =
+            schedulerDriver ?? AndroidAlarmManagerSchedulerDriver();
 
+  // ignore: unused_field
+  final NotificationService _notificationService;
   final AlarmSchedulerDriver _schedulerDriver;
   final Set<int> _scheduledIds = <int>{};
 
@@ -99,7 +118,7 @@ class AndroidAlarmService implements AlarmService {
       );
     }
 
-    final desiredIds = desiredRequests.map((request) => request.alarmId).toSet();
+    final desiredIds = desiredRequests.map((r) => r.alarmId).toSet();
     final obsoleteIds = _scheduledIds.difference(desiredIds);
 
     for (final id in obsoleteIds) {
@@ -117,7 +136,10 @@ class AndroidAlarmService implements AlarmService {
 }
 
 @pragma('vm:entry-point')
-Future<void> alarmCallbackDispatcher(int id, Map<String, dynamic> params) async {
+Future<void> alarmCallbackDispatcher(
+  int id,
+  Map<String, dynamic> params,
+) async {
   final notificationService = LocalNotificationService();
   final payload = AlarmTriggerPayload.fromJson(
     jsonDecode(jsonEncode(params)) as Map<String, dynamic>,

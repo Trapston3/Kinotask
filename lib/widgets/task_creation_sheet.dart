@@ -1,9 +1,12 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/task.dart';
 import '../providers/task_provider.dart';
+import '../services/haptics_service.dart';
 import '../services/notification_service.dart';
+import '../theme/app_theme.dart';
 
 class TaskCreationSheet extends StatefulWidget {
   const TaskCreationSheet({super.key});
@@ -13,7 +16,6 @@ class TaskCreationSheet extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      backgroundColor: Theme.of(context).cardColor,
       builder: (context) => const TaskCreationSheet(),
     );
   }
@@ -25,7 +27,8 @@ class TaskCreationSheet extends StatefulWidget {
 class _TaskCreationSheetState extends State<TaskCreationSheet> {
   final TextEditingController _titleController = TextEditingController();
   TaskPriority _selectedPriority = TaskPriority.medium;
-  TimeOfDay? _selectedTime;
+  DateTime? _selectedDateTime;
+  bool _isRecurring = false;
   bool _isSaving = false;
 
   @override
@@ -74,6 +77,7 @@ class _TaskCreationSheetState extends State<TaskCreationSheet> {
                     label: Text(priority.label),
                     selected: _selectedPriority == priority,
                     onSelected: (_) {
+                      context.read<HapticsService>().subtleClick();
                       setState(() {
                         _selectedPriority = priority;
                       });
@@ -82,18 +86,44 @@ class _TaskCreationSheetState extends State<TaskCreationSheet> {
               ],
             ),
             const SizedBox(height: 20),
-            ListTile(
+            const Text(
+              'Date & Time (Optional)',
+              style: TextStyle(
+                color: AppTheme.subtleGrey,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 120,
+              child: CupertinoTheme(
+                data: CupertinoThemeData(
+                  textTheme: CupertinoTextThemeData(
+                    dateTimePickerTextStyle: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.dateAndTime,
+                  initialDateTime: _selectedDateTime ?? DateTime.now(),
+                  onDateTimeChanged: (DateTime newTime) {
+                    setState(() => _selectedDateTime = newTime);
+                  },
+                ),
+              ),
+            ),
+            SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Set Alarm Time'),
-              subtitle: Text(
-                _selectedTime == null
-                    ? 'Optional. Picks the next occurrence of the selected time.'
-                    : _selectedTime!.format(context),
-              ),
-              trailing: TextButton(
-                onPressed: _pickTime,
-                child: const Text('Choose'),
-              ),
+              title: const Text('Recurring Daily'),
+              value: _isRecurring,
+              onChanged: (value) {
+                context.read<HapticsService>().subtleClick();
+                setState(() {
+                  _isRecurring = value;
+                });
+              },
             ),
             const SizedBox(height: 20),
             SizedBox(
@@ -109,20 +139,7 @@ class _TaskCreationSheetState extends State<TaskCreationSheet> {
     );
   }
 
-  Future<void> _pickTime() async {
-    final time = await showTimePicker(
-      context: context,
-      initialTime: _selectedTime ?? TimeOfDay.now(),
-    );
 
-    if (time == null || !mounted) {
-      return;
-    }
-
-    setState(() {
-      _selectedTime = time;
-    });
-  }
 
   Future<void> _saveTask() async {
     if (_titleController.text.trim().isEmpty) {
@@ -133,40 +150,22 @@ class _TaskCreationSheetState extends State<TaskCreationSheet> {
       _isSaving = true;
     });
 
-    final alarmDateTime = _selectedTime == null
-        ? null
-        : _nextOccurrenceFor(_selectedTime!, DateTime.now());
     final notificationService = context.read<NotificationService>();
     final taskProvider = context.read<TaskProvider>();
 
-    if (alarmDateTime != null && mounted) {
+    if (_selectedDateTime != null && mounted) {
       await notificationService.requestAlarmPermissions();
     }
 
     await taskProvider.addTask(
-          title: _titleController.text,
-          priority: _selectedPriority,
-          alarmDateTime: alarmDateTime,
-        );
+      title: _titleController.text,
+      priority: _selectedPriority,
+      alarmDateTime: _selectedDateTime,
+      isRecurring: _isRecurring,
+    );
 
     if (mounted) {
       Navigator.of(context).pop();
     }
-  }
-
-  DateTime _nextOccurrenceFor(TimeOfDay time, DateTime now) {
-    final candidate = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      time.hour,
-      time.minute,
-    );
-
-    if (candidate.isAfter(now)) {
-      return candidate;
-    }
-
-    return candidate.add(const Duration(days: 1));
   }
 }
