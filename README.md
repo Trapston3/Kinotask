@@ -1,9 +1,10 @@
 # Kinotask 🌌
 
 [![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white)](https://flutter.dev)
-[![Samsung One UI](https://img.shields.io/badge/Design-Samsung_One_UI-034EA2?style=for-the-badge&logo=samsung&logoColor=white)](https://developer.samsung.com/one-ui)
+[![Samsung One UI](https://img.shields.io/badge/Design-One_UI_x_iOS-034EA2?style=for-the-badge&logo=samsung&logoColor=white)](https://developer.samsung.com/one-ui)
+[![iOS Inspired](https://img.shields.io/badge/UX-iOS_Clocks-white?style=for-the-badge&logo=apple&logoColor=black)](https://developer.apple.com/design/human-interface-guidelines)
 
-**Kinotask** is a premium, high-performance productivity ecosystem for Android, meticulously designed to blend Samsung's One UI aesthetics with hardcore security and reliability.
+**Kinotask** is a premium, high-performance productivity ecosystem for Android, meticulously designed to blend Samsung's One UI ergonomics with the precision and aesthetics of iOS.
 
 ---
 
@@ -22,9 +23,10 @@
   - **Documents**: High-resolution document scanner with edge detection and in-app interactive preview.
   - **Notes**: Encrypted rich-text scratchpad for sensitive information.
 
-### 🎨 Premium One UI Design
+### 🎨 One UI x iOS Hybrid Design
+- **Cupertino Clocks**: Precision timing interfaces and durations powered by iOS-inspired pickers and fluid selection dials.
 - **120Hz Fluidity**: Optimized repaint boundaries and custom `SquircleToggle` widgets ensure a stutter-free experience on high-refresh-rate displays.
-- **Stitch Design System**: Custom glassmorphic elements, vibrant gradients, and haptic-responsive interactions.
+- **Stitch Design System**: Custom glassmorphic elements, vibrant gradients, and haptic-responsive interactions that bridge the best of both design languages.
 - **Dynamic Interface**: Segmented controls and interactive progress rings for "Deep Work" focus timers.
 
 ---
